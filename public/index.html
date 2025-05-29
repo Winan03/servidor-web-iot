@@ -1,0 +1,38 @@
+<!-- index.html -->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Monitor DHT</title>
+  <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-database-compat.js"></script>
+</head>
+<body>
+  <h1>Temperatura: <span id="temp">--</span> °C</h1>
+  <h1>Humedad: <span id="hum">--</span> %</h1>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyAKfuwBZCX48KBmfSqX4QUT4M7Pr5BZPmE",
+      authDomain: "dht-monitor-f7631.firebaseapp.com",
+      projectId: "dht-monitor-f7631",
+      storageBucket: "dht-monitor-f7631.appspot.com",
+      messagingSenderId: "74820115764",
+      appId: "1:74820115764:web:5f95d0df429928dc8a1961",
+      measurementId: "G-LHB9TDRFN5",
+      databaseURL: "https://dht-monitor-f7631-default-rtdb.firebaseio.com"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    db.ref('/sensor/temperatura').on('value', snapshot => {
+      document.getElementById("temp").innerText = snapshot.val();
+    });
+
+    db.ref('/sensor/humedad').on('value', snapshot => {
+      document.getElementById("hum").innerText = snapshot.val();
+    });
+  </script>
+</body>
+</html>
