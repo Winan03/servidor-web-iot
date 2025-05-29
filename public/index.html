@@ -1,37 +1,594 @@
-<!-- index.html -->
 <!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Monitor DHT</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Monitor DHT - Debug</title>
   <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-database-compat.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .container {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(10px);
+      border-radius: 20px;
+      padding: 40px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+      text-align: center;
+      max-width: 800px;
+      width: 100%;
+      animation: slideIn 0.8s ease-out;
+    }
+
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateY(30px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    h1 {
+      color: #333;
+      margin-bottom: 30px;
+      font-size: 2.5rem;
+      font-weight: 300;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .sensors-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 30px;
+      margin-top: 40px;
+    }
+
+    .sensor-card {
+      background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+      border-radius: 15px;
+      padding: 30px 20px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .sensor-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 15px 40px rgba(0, 0, 0, 0.15);
+    }
+
+    .sensor-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: linear-gradient(90deg, #ff6b6b, #feca57, #48dbfb, #ff9ff3);
+      animation: gradientShift 3s ease-in-out infinite;
+    }
+
+    @keyframes gradientShift {
+      0%, 100% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+    }
+
+    .sensor-icon {
+      font-size: 3rem;
+      margin-bottom: 15px;
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.1); }
+    }
+
+    .temperature-icon {
+      color: #ff6b6b;
+    }
+
+    .humidity-icon {
+      color: #48dbfb;
+    }
+
+    .sensor-label {
+      font-size: 1.2rem;
+      color: #666;
+      margin-bottom: 10px;
+      font-weight: 500;
+    }
+
+    .sensor-value {
+      font-size: 3rem;
+      font-weight: bold;
+      color: #333;
+      margin-bottom: 5px;
+      transition: all 0.3s ease;
+      font-feature-settings: 'tnum';
+    }
+
+    .sensor-unit {
+      font-size: 1.5rem;
+      color: #999;
+      font-weight: 300;
+    }
+
+    .loading {
+      color: #999;
+      animation: blink 1.5s ease-in-out infinite;
+    }
+
+    @keyframes blink {
+      0%, 50% { opacity: 1; }
+      51%, 100% { opacity: 0.3; }
+    }
+
+    .status-indicator {
+      position: absolute;
+      top: 15px;
+      right: 15px;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #4ecdc4;
+      animation: statusPulse 2s ease-in-out infinite;
+    }
+
+    .status-indicator.offline {
+      background: #ff6b6b;
+      animation: none;
+    }
+
+    @keyframes statusPulse {
+      0%, 100% { 
+        box-shadow: 0 0 0 0 rgba(78, 205, 196, 0.7);
+      }
+      50% { 
+        box-shadow: 0 0 0 10px rgba(78, 205, 196, 0);
+      }
+    }
+
+    .last-update {
+      margin-top: 30px;
+      color: #999;
+      font-size: 0.9rem;
+    }
+
+    .connection-info {
+      margin-top: 20px;
+      padding: 15px;
+      background: rgba(78, 205, 196, 0.1);
+      border-radius: 10px;
+      border-left: 4px solid #4ecdc4;
+    }
+
+    .connection-info h3 {
+      color: #4ecdc4;
+      margin-bottom: 10px;
+      font-size: 1rem;
+    }
+
+    .info-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 10px;
+      font-size: 0.9rem;
+      color: #666;
+    }
+
+    .debug-section {
+      margin-top: 30px;
+      padding: 20px;
+      background: rgba(255, 193, 7, 0.1);
+      border-radius: 10px;
+      border-left: 4px solid #ffc107;
+      text-align: left;
+    }
+
+    .debug-section h3 {
+      color: #856404;
+      margin-bottom: 15px;
+      font-size: 1.1rem;
+    }
+
+    .debug-log {
+      background: #f8f9fa;
+      padding: 15px;
+      border-radius: 8px;
+      font-family: 'Courier New', monospace;
+      font-size: 0.85rem;
+      color: #495057;
+      max-height: 200px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+    }
+
+    .test-buttons {
+      margin-top: 15px;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .test-btn {
+      background: #007bff;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      transition: background 0.3s;
+    }
+
+    .test-btn:hover {
+      background: #0056b3;
+    }
+
+    @media (max-width: 768px) {
+      .container {
+        padding: 30px 20px;
+      }
+      
+      h1 {
+        font-size: 2rem;
+      }
+      
+      .sensor-value {
+        font-size: 2.5rem;
+      }
+      
+      .sensors-grid {
+        grid-template-columns: 1fr;
+        gap: 20px;
+      }
+    }
+  </style>
 </head>
 <body>
-  <h1>Temperatura: <span id="temp">--</span> °C</h1>
-  <h1>Humedad: <span id="hum">--</span> %</h1>
+  <div class="container">
+    <h1>🌡️ Monitor Ambiental</h1>
+    
+    <div class="sensors-grid">
+      <div class="sensor-card">
+        <div class="status-indicator" id="tempStatus"></div>
+        <div class="sensor-icon temperature-icon">🌡️</div>
+        <div class="sensor-label">Temperatura</div>
+        <div class="sensor-value loading" id="temp">--</div>
+        <div class="sensor-unit">°C</div>
+      </div>
+      
+      <div class="sensor-card">
+        <div class="status-indicator" id="humStatus"></div>
+        <div class="sensor-icon humidity-icon">💧</div>
+        <div class="sensor-label">Humedad</div>
+        <div class="sensor-value loading" id="hum">--</div>
+        <div class="sensor-unit">%</div>
+      </div>
+    </div>
+    
+    <div class="last-update" id="lastUpdate">
+      Esperando datos del sensor...
+    </div>
+
+    <div class="connection-info" id="connectionInfo" style="display: none;">
+      <h3>📡 Información de Conexión</h3>
+      <div class="info-grid">
+        <div>IP: <span id="deviceIP">--</span></div>
+        <div>RSSI: <span id="deviceRSSI">--</span> dBm</div>
+        <div>Timestamp: <span id="deviceTime">--</span></div>
+      </div>
+    </div>
+
+    <div class="debug-section">
+      <h3>🔧 Panel de Debug</h3>
+      <div class="debug-log" id="debugLog">Iniciando conexión con Firebase...\n</div>
+      <div class="test-buttons">
+        <button class="test-btn" onclick="testFirebaseConnection()">Test Conexión</button>
+        <button class="test-btn" onclick="checkDatabaseStructure()">Ver Estructura DB</button>
+        <button class="test-btn" onclick="clearDebugLog()">Limpiar Log</button>
+        <button class="test-btn" onclick="addManualData()">Datos de Prueba</button>
+      </div>
+    </div>
+  </div>
 
   <script>
     const firebaseConfig = {
-      apiKey: "AIzaSyAKfuwBZCX48KBmfSqX4QUT4M7Pr5BZPmE",
-      authDomain: "dht-monitor-f7631.firebaseapp.com",
-      projectId: "dht-monitor-f7631",
-      storageBucket: "dht-monitor-f7631.appspot.com",
-      messagingSenderId: "74820115764",
-      appId: "1:74820115764:web:5f95d0df429928dc8a1961",
-      measurementId: "G-LHB9TDRFN5",
-      databaseURL: "https://dht-monitor-f7631-default-rtdb.firebaseio.com"
+        apiKey: "AIzaSyAKfuwBZCX48KBmfSqX4QUT4M7Pr5BZPmE",
+        authDomain: "dht-monitor-f7631.firebaseapp.com",
+        projectId: "dht-monitor-f7631",
+        storageBucket: "dht-monitor-f7631.firebasestorage.app",
+        messagingSenderId: "74820115764",
+        appId: "1:74820115764:web:5f95d0df429928dc8a1961",
+        measurementId: "G-LHB9TDRFN5",
+        databaseURL: "https://dht-monitor-f7631-default-rtdb.firebaseio.com"
     };
 
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.database();
+    let db;
+    let lastDataTime = 0;
+    let connectionCheckInterval;
 
-    db.ref('/sensor/temperatura').on('value', snapshot => {
-      document.getElementById("temp").innerText = snapshot.val();
-    });
+    // Función de debug logging
+    function debugLog(message) {
+      const timestamp = new Date().toLocaleTimeString();
+      const logElement = document.getElementById('debugLog');
+      logElement.textContent += `[${timestamp}] ${message}\n`;
+      logElement.scrollTop = logElement.scrollHeight;
+      console.log(`[DHT Monitor] ${message}`);
+    }
 
-    db.ref('/sensor/humedad').on('value', snapshot => {
-      document.getElementById("hum").innerText = snapshot.val();
+    // Inicializar Firebase con manejo de errores
+    function initializeFirebase() {
+      try {
+        firebase.initializeApp(firebaseConfig);
+        db = firebase.database();
+        debugLog("✅ Firebase inicializado correctamente");
+        
+        // Test de conexión
+        db.ref('.info/connected').on('value', (snapshot) => {
+          if (snapshot.val() === true) {
+            debugLog("🌐 Conectado a Firebase Realtime Database");
+            updateConnectionStatus(true);
+          } else {
+            debugLog("❌ Desconectado de Firebase");
+            updateConnectionStatus(false);
+          }
+        });
+        
+        setupDataListeners();
+      } catch (error) {
+        debugLog(`❌ Error al inicializar Firebase: ${error.message}`);
+      }
+    }
+
+    function setupDataListeners() {
+      debugLog("🔍 Configurando listeners de datos...");
+      
+      // Listener para readings más recientes
+      db.ref('/sensor/readings').orderByKey().limitToLast(1).on('child_added', (snapshot) => {
+        debugLog(`📊 Datos recibidos en /sensor/readings: ${snapshot.key}`);
+        const data = snapshot.val();
+        debugLog(`📋 Contenido: ${JSON.stringify(data)}`);
+        processNewData(data, 'readings');
+      }, (error) => {
+        debugLog(`❌ Error en listener readings: ${error.message}`);
+      });
+
+      // Listener para toda la estructura de readings
+      db.ref('/sensor/readings').on('value', (snapshot) => {
+        const data = snapshot.val();
+        if (data) {
+          debugLog(`📊 Snapshot completo de readings: ${Object.keys(data).length} entradas`);
+          // Obtener la última entrada
+          const keys = Object.keys(data);
+          const lastKey = keys[keys.length - 1];
+          const lastData = data[lastKey];
+          processNewData(lastData, 'readings_snapshot');
+        } else {
+          debugLog("❌ No hay datos en /sensor/readings");
+        }
+      });
+
+      // Listeners individuales como fallback
+      db.ref('/sensor/temperatura').on('value', (snapshot) => {
+        const value = snapshot.val();
+        debugLog(`🌡️ Temperatura individual: ${value}`);
+        if (value !== null) {
+          updateTemperature(value);
+          updateLastUpdate();
+          lastDataTime = Date.now();
+          updateConnectionStatus(true);
+        }
+      });
+
+      db.ref('/sensor/humedad').on('value', (snapshot) => {
+        const value = snapshot.val();
+        debugLog(`💧 Humedad individual: ${value}`);
+        if (value !== null) {
+          updateHumidity(value);
+          updateLastUpdate();
+          lastDataTime = Date.now();
+          updateConnectionStatus(true);
+        }
+      });
+    }
+
+    function processNewData(data, source) {
+      if (!data) {
+        debugLog(`❌ Datos vacíos desde ${source}`);
+        return;
+      }
+      
+      debugLog(`✅ Procesando datos desde ${source}`);
+      
+      if (data.temperatura !== undefined) {
+        updateTemperature(data.temperatura);
+        debugLog(`🌡️ Temperatura actualizada: ${data.temperatura}°C`);
+      }
+      
+      if (data.humedad !== undefined) {
+        updateHumidity(data.humedad);
+        debugLog(`💧 Humedad actualizada: ${data.humedad}%`);
+      }
+      
+      // Actualizar información adicional
+      if (data.ip) {
+        document.getElementById('deviceIP').textContent = data.ip;
+        debugLog(`📡 IP: ${data.ip}`);
+      }
+      if (data.rssi) {
+        document.getElementById('deviceRSSI').textContent = data.rssi;
+        debugLog(`📶 RSSI: ${data.rssi} dBm`);
+      }
+      if (data.timestamp) {
+        const date = new Date(data.timestamp);
+        document.getElementById('deviceTime').textContent = date.toLocaleTimeString('es-ES');
+        debugLog(`⏰ Timestamp: ${date.toLocaleTimeString('es-ES')}`);
+      }
+      
+      // Mostrar información de conexión
+      document.getElementById('connectionInfo').style.display = 'block';
+      
+      updateLastUpdate();
+      lastDataTime = Date.now();
+      updateConnectionStatus(true);
+    }
+
+    function updateTemperature(value) {
+      animateValue(document.getElementById("temp"), parseFloat(value).toFixed(1));
+    }
+
+    function updateHumidity(value) {
+      animateValue(document.getElementById("hum"), parseFloat(value).toFixed(1));
+    }
+
+    function updateLastUpdate() {
+      const now = new Date();
+      const timeString = now.toLocaleTimeString('es-ES');
+      document.getElementById('lastUpdate').textContent = `Última actualización: ${timeString}`;
+    }
+
+    function animateValue(element, newValue) {
+      element.classList.remove('loading');
+      element.style.transform = 'scale(1.1)';
+      element.textContent = newValue;
+      
+      setTimeout(() => {
+        element.style.transform = 'scale(1)';
+      }, 150);
+    }
+
+    function updateConnectionStatus(isOnline) {
+      const tempStatus = document.getElementById('tempStatus');
+      const humStatus = document.getElementById('humStatus');
+      
+      if (isOnline) {
+        tempStatus.classList.remove('offline');
+        humStatus.classList.remove('offline');
+      } else {
+        tempStatus.classList.add('offline');
+        humStatus.classList.add('offline');
+      }
+    }
+
+    function checkConnection() {
+      const now = Date.now();
+      const timeSinceLastData = now - lastDataTime;
+      
+      if (timeSinceLastData > 30000 && lastDataTime > 0) {
+        updateConnectionStatus(false);
+        document.getElementById('lastUpdate').textContent = 
+          `Sensor desconectado (${Math.floor(timeSinceLastData/1000)}s)`;
+        debugLog(`⚠️ Sensor desconectado por ${Math.floor(timeSinceLastData/1000)} segundos`);
+      }
+    }
+
+    // Funciones de testing
+    function testFirebaseConnection() {
+      debugLog("🧪 Iniciando test de conexión...");
+      
+      db.ref('/.info/serverTimeOffset').once('value')
+        .then((snapshot) => {
+          const offset = snapshot.val();
+          debugLog(`✅ Conexión OK. Server offset: ${offset}ms`);
+        })
+        .catch((error) => {
+          debugLog(`❌ Error de conexión: ${error.message}`);
+        });
+    }
+
+    function checkDatabaseStructure() {
+      debugLog("🔍 Verificando estructura de la base de datos...");
+      
+      db.ref('/sensor').once('value')
+        .then((snapshot) => {
+          const data = snapshot.val();
+          if (data) {
+            debugLog(`📁 Estructura encontrada: ${Object.keys(data).join(', ')}`);
+            
+            if (data.readings) {
+              const readingsKeys = Object.keys(data.readings);
+              debugLog(`📊 Readings disponibles: ${readingsKeys.length} entradas`);
+              debugLog(`🔑 Últimas claves: ${readingsKeys.slice(-3).join(', ')}`);
+            }
+            
+            if (data.temperatura !== undefined) {
+              debugLog(`🌡️ Temperatura directa: ${data.temperatura}`);
+            }
+            
+            if (data.humedad !== undefined) {
+              debugLog(`💧 Humedad directa: ${data.humedad}`);
+            }
+          } else {
+            debugLog("❌ No se encontró el nodo /sensor");
+          }
+        })
+        .catch((error) => {
+          debugLog(`❌ Error al verificar estructura: ${error.message}`);
+        });
+    }
+
+    function clearDebugLog() {
+      document.getElementById('debugLog').textContent = '';
+      debugLog("🧹 Log limpiado");
+    }
+
+    function addManualData() {
+      debugLog("🧪 Añadiendo datos de prueba...");
+      const testData = {
+        temperatura: 23.5,
+        humedad: 65,
+        ip: "192.168.1.100",
+        rssi: -45,
+        timestamp: Date.now()
+      };
+      
+      processNewData(testData, 'manual_test');
+      debugLog("✅ Datos de prueba procesados");
+    }
+
+    // Inicializar la aplicación
+    initializeFirebase();
+
+    // Verificar conexión cada 5 segundos
+    connectionCheckInterval = setInterval(checkConnection, 5000);
+
+    // Mensaje inicial
+    setTimeout(() => {
+      if (document.getElementById("temp").textContent === '--') {
+        debugLog("⏳ Esperando datos del sensor...");
+        document.getElementById('lastUpdate').textContent = 'Conectando con el sensor...';
+      }
+    }, 2000);
+
+    // Limpiar interval al cerrar la página
+    window.addEventListener('beforeunload', () => {
+      if (connectionCheckInterval) {
+        clearInterval(connectionCheckInterval);
+      }
     });
   </script>
 </body>
